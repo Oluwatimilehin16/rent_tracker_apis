@@ -1,8 +1,9 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Origin: *'); // You might need to change this to your domain
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Credentials: true'); // ← Add this line
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -27,12 +28,21 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Debug: Log session data
+error_log("Session data: " . print_r($_SESSION, true));
+error_log("Session ID: " . session_id());
+
 // Check if landlord is authenticated
 if (!isset($_SESSION['landlord_id'])) {
     http_response_code(401);
     echo json_encode([
         'success' => false,
-        'message' => 'Unauthorized. Please log in first.'
+        'message' => 'Unauthorized. Please log in first.',
+        'debug' => [
+            'session_id' => session_id(),
+            'session_exists' => !empty($_SESSION),
+            'landlord_id_exists' => isset($_SESSION['landlord_id'])
+        ]
     ]);
     exit();
 }
@@ -42,10 +52,10 @@ $landlord_id = $_SESSION['landlord_id'];
 try {
     // Get all classes created by the landlord
     $classes_query = "SELECT id, class_name, class_code, created_at, 
-                      (SELECT COUNT(*) FROM tenants WHERE class_id = classes.id) as tenant_count
-                      FROM classes 
-                      WHERE landlord_id = '$landlord_id' 
-                      ORDER BY created_at DESC";
+                     (SELECT COUNT(*) FROM tenants WHERE class_id = classes.id) as tenant_count 
+                     FROM classes 
+                     WHERE landlord_id = '$landlord_id' 
+                     ORDER BY created_at DESC";
     
     $classes_result = mysqli_query($conn, $classes_query);
     

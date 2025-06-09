@@ -6,7 +6,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
     $landlord_id = $_GET['landlord_id'];
     $bill_id = (int)$_GET['bill_id'];
 
-    // Fetch bill details
     $query = "
         SELECT b.*, c.class_name, 
                CONCAT(u.firstname, ' ', u.lastname) AS tenant_name,
@@ -28,7 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
             'message' => 'Bill not found'
         ]);
     } else {
-        // Calculate due status
+        // ✅ Cast status to boolean
+        $bill['status'] = ($bill['status'] == 1);  // 1 = paid, 0 = not paid
+
+        // Due date calculation
         $today = date('Y-m-d');
         $due_date = new DateTime($bill['due_date']);
         $today_date = new DateTime($today);

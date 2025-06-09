@@ -1,18 +1,27 @@
 <?php
-header('Content-Type: application/json');
+// --- CORS HEADERS (must be at the very top, before any output) ---
 header('Access-Control-Allow-Origin: https://rent-tracker-frontend.onrender.com');
+header('Access-Control-Allow-Credentials: true'); // Allow cookies/session
 header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Content-Type: application/json');
 
-// Handle preflight OPTIONS request
+// --- Handle preflight OPTIONS request ---
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
+// --- SESSION COOKIE SETTINGS for cross-origin ---
+session_set_cookie_params([
+    'samesite' => 'None',
+    'secure' => true
+]);
+session_start();
+
 include 'config.php';
 
-// Helper function to send JSON response
+// --- Helper function to send JSON response ---
 function sendResponse($success, $data = null, $message = '', $code = 200) {
     http_response_code($code);
     echo json_encode([
@@ -24,17 +33,14 @@ function sendResponse($success, $data = null, $message = '', $code = 200) {
     exit();
 }
 
-// Validate landlord authentication
+// --- Validate landlord authentication ---
 if (!isset($_SESSION['landlord_id']) && !isset($_GET['landlord_id']) && !isset($_POST['landlord_id'])) {
-    session_start();
-    if (!isset($_SESSION['landlord_id'])) {
-        sendResponse(false, null, 'Authentication required', 401);
-    }
+    sendResponse(false, null, 'Authentication required', 401);
 }
 
 $landlord_id = $_SESSION['landlord_id'] ?? $_GET['landlord_id'] ?? $_POST['landlord_id'];
 
-// Validate bill_id parameter
+// --- Validate bill_id parameter ---
 if (!isset($_GET['id']) || empty($_GET['id'])) {
     sendResponse(false, null, 'Bill ID is required', 400);
 }
@@ -46,9 +52,7 @@ if ($bill_id <= 0) {
 }
 
 try {
-    // Handle different HTTP methods
     switch ($_SERVER['REQUEST_METHOD']) {
-        
         case 'GET':
             // Fetch bill data for editing
             $bill_query = "
@@ -92,7 +96,7 @@ try {
             $tenants_stmt->bind_param("i", $landlord_id);
             $tenants_stmt->execute();
             $tenants_result = $tenants_stmt->get_result();
-            
+
             $tenants = [];
             while ($tenant = $tenants_result->fetch_assoc()) {
                 $tenants[] = $tenant;
@@ -108,7 +112,7 @@ try {
             $classes_stmt->bind_param("i", $landlord_id);
             $classes_stmt->execute();
             $classes_result = $classes_stmt->get_result();
-            
+
             $classes = [];
             while ($class = $classes_result->fetch_assoc()) {
                 $classes[] = $class;
@@ -127,13 +131,11 @@ try {
         case 'PUT':
             // Handle bill update
             $input = json_decode(file_get_contents('php://input'), true);
-            
-            // If JSON input is empty, try to get data from POST
+
             if (empty($input)) {
                 $input = $_POST;
             }
 
-            // Validate required fields
             $required_fields = ['bill_name', 'amount', 'due_date', 'users_id'];
             foreach ($required_fields as $field) {
                 if (!isset($input[$field]) || empty($input[$field])) {
@@ -141,19 +143,16 @@ try {
                 }
             }
 
-            // Sanitize and validate input
             $bill_name = trim($input['bill_name']);
             $amount = (float)$input['amount'];
             $due_date = $input['due_date'];
             $user_id = (int)$input['users_id'];
             $status = isset($input['status']) && ($input['status'] === true || $input['status'] === 'paid') ? 'paid' : 'unpaid';
-            
-            // Validate amount
+
             if ($amount <= 0) {
                 sendResponse(false, null, 'Amount must be greater than 0', 400);
             }
 
-            // Validate due date format
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $due_date)) {
                 sendResponse(false, null, 'Invalid due date format. Use YYYY-MM-DD', 400);
             }
@@ -166,7 +165,7 @@ try {
                 INNER JOIN classes c ON uc.class_id = c.id 
                 WHERE u.id = ? AND c.landlord_id = ?
             ";
-            
+
             $user_stmt = $conn->prepare($user_validation_query);
             if (!$user_stmt) {
                 sendResponse(false, null, 'Database prepare error: ' . $conn->error, 500);
@@ -175,7 +174,7 @@ try {
             $user_stmt->bind_param("ii", $user_id, $landlord_id);
             $user_stmt->execute();
             $user_result = $user_stmt->get_result();
-            
+
             if ($user_result->num_rows === 0) {
                 sendResponse(false, null, 'Selected tenant does not belong to your properties', 400);
             }
@@ -185,7 +184,6 @@ try {
             if ($status === 'paid') {
                 if (isset($input['payment_date']) && !empty($input['payment_date'])) {
                     $payment_date = $input['payment_date'];
-                    // Validate payment date format
                     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payment_date)) {
                         sendResponse(false, null, 'Invalid payment date format. Use YYYY-MM-DD', 400);
                     }
@@ -204,7 +202,7 @@ try {
             $ownership_stmt->bind_param("ii", $bill_id, $landlord_id);
             $ownership_stmt->execute();
             $ownership_result = $ownership_stmt->get_result();
-            
+
             if ($ownership_result->num_rows === 0) {
                 sendResponse(false, null, 'Bill not found or access denied', 404);
             }
@@ -225,9 +223,8 @@ try {
             if (!$update_stmt) {
                 sendResponse(false, null, 'Database prepare error: ' . $conn->error, 500);
             }
-
             $update_stmt->bind_param("sdsssii", $bill_name, $amount, $due_date, $status, $payment_date, $bill_id, $landlord_id);
-            
+
             if ($update_stmt->execute()) {
                 if ($update_stmt->affected_rows > 0) {
                     // Fetch the updated bill data
@@ -238,7 +235,7 @@ try {
                         JOIN users u ON uc.user_id = u.id
                         WHERE b.id = ? AND b.landlord_id = ?
                     ";
-                    
+
                     $updated_stmt = $conn->prepare($updated_bill_query);
                     $updated_stmt->bind_param("ii", $bill_id, $landlord_id);
                     $updated_stmt->execute();

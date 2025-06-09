@@ -35,7 +35,6 @@ $bill_query = "
         b.amount,
         b.due_date,
         b.status,
-        b.payment_date,
         b.class_id,
         u.firstname AS tenant_firstname,
         u.id AS users_id

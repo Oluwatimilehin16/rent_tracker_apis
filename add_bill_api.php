@@ -1,8 +1,25 @@
 <?php
+// Fixed CORS headers for credentials
+$allowed_origins = [
+    'https://rent-tracker-frontend.onrender.com',
+    'http://localhost:3000', // for local development
+    'http://localhost:8000', // for local development
+    // Add any other domains you need
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+if (in_array($origin, $allowed_origins)) {
+    header("Access-Control-Allow-Origin: $origin");
+} else {
+    // Fallback - you might want to restrict this further
+    header('Access-Control-Allow-Origin: https://rent-tracker-frontend.onrender.com');
+}
+
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Credentials: true'); // This is crucial
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {

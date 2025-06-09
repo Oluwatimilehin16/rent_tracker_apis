@@ -1,25 +1,8 @@
 <?php
-// Fixed CORS headers for credentials
-$allowed_origins = [
-    'https://rent-tracker-frontend.onrender.com',
-    'http://localhost:3000', // for local development
-    'http://localhost:8000', // for local development
-    // Add any other domains you need
-];
-
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-
-if (in_array($origin, $allowed_origins)) {
-    header("Access-Control-Allow-Origin: $origin");
-} else {
-    // Fallback - you might want to restrict this further
-    header('Access-Control-Allow-Origin: https://rent-tracker-frontend.onrender.com');
-}
-
 header('Content-Type: application/json');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true'); // This is crucial
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -27,47 +10,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Only allow GET requests
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+// Only allow POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode([
         'success' => false,
-        'message' => 'Method not allowed. Only GET requests are accepted.'
+        'message' => 'Method not allowed. Only POST requests are accepted.'
     ]);
     exit();
 }
 
 include 'config.php';
 
-// Start session for authentication
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Debug: Log session data
-error_log("Session data: " . print_r($_SESSION, true));
-error_log("Session ID: " . session_id());
-error_log("Origin: " . $origin);
-
-// Check if landlord is authenticated
-if (!isset($_SESSION['landlord_id'])) {
-    http_response_code(401);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Unauthorized. Please log in first.',
-        'debug' => [
-            'session_id' => session_id(),
-            'session_exists' => !empty($_SESSION),
-            'landlord_id_exists' => isset($_SESSION['landlord_id']),
-            'origin' => $origin
-        ]
-    ]);
-    exit();
-}
-
-$landlord_id = $_SESSION['landlord_id'];
-
 try {
+    // Get JSON input
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    // Validate landlord_id is provided
+    if (empty($input['landlord_id'])) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'landlord_id is required.',
+        ]);
+        exit();
+    }
+    
+    $landlord_id = mysqli_real_escape_string($conn, $input['landlord_id']);
+    
+    // Verify landlord exists (optional security check)
+    $landlord_check = mysqli_query($conn, "SELECT id FROM landlords WHERE id = '$landlord_id'");
+    if (mysqli_num_rows($landlord_check) === 0) {
+        http_response_code(401);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid landlord ID.'
+        ]);
+        exit();
+    }
+    
     // Get all classes created by the landlord
     $classes_query = "SELECT id, class_name, class_code, created_at, 
                      (SELECT COUNT(*) FROM tenants WHERE class_id = classes.id) as tenant_count 

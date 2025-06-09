@@ -31,7 +31,7 @@ $today = date('Y-m-d');
 
 // Fetch bills data
 $query = "
-    SELECT DISTINCT b.id, b.bill_name, b.amount, b.due_date, b.status, b.payment_date,
+    SELECT DISTINCT b.id, b.bill_name, b.amount, b.due_date, b.status, 
            c.class_name, 
            CONCAT(u.firstname, ' ', u.lastname) AS tenant_name
     FROM bills b
@@ -75,11 +75,12 @@ while ($row = mysqli_fetch_assoc($result)) {
     $row['days_diff'] = $days_diff;
     
     // Set due status and text
-    if ($row['status'] == 1) {
-        $payment_date = $row['payment_date'] ? $row['payment_date'] : $today;
-        $row['due_text'] = 'Paid on ' . date('M j, Y', strtotime($payment_date));
-        $row['due_class'] = 'due-paid';
-    } else {
+  if ($row['status'] == 1) {
+    $row['due_text'] = 'Paid (was due ' . date('M j, Y', strtotime($row['due_date'])) . ')';
+    $row['due_class'] = 'due-paid';
+}
+
+ else {
         if ($days_diff < 0) {
             $row['due_text'] = "Overdue by " . abs($days_diff) . " days";
             $row['due_class'] = 'due-overdue';

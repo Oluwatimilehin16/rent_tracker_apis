@@ -1,9 +1,25 @@
 <?php
+// Fixed CORS headers for credentials
+$allowed_origins = [
+    'https://rent-tracker-frontend.onrender.com',
+    'http://localhost:3000', // for local development
+    'http://localhost:8000', // for local development
+    // Add any other domains you need
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+if (in_array($origin, $allowed_origins)) {
+    header("Access-Control-Allow-Origin: $origin");
+} else {
+    // Fallback - you might want to restrict this further
+    header('Access-Control-Allow-Origin: https://rent-tracker-frontend.onrender.com');
+}
+
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); // You might need to change this to your domain
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true'); // ← Add this line
+header('Access-Control-Allow-Credentials: true'); // This is crucial
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -31,6 +47,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // Debug: Log session data
 error_log("Session data: " . print_r($_SESSION, true));
 error_log("Session ID: " . session_id());
+error_log("Origin: " . $origin);
 
 // Check if landlord is authenticated
 if (!isset($_SESSION['landlord_id'])) {
@@ -41,7 +58,8 @@ if (!isset($_SESSION['landlord_id'])) {
         'debug' => [
             'session_id' => session_id(),
             'session_exists' => !empty($_SESSION),
-            'landlord_id_exists' => isset($_SESSION['landlord_id'])
+            'landlord_id_exists' => isset($_SESSION['landlord_id']),
+            'origin' => $origin
         ]
     ]);
     exit();
@@ -81,7 +99,7 @@ try {
     }
     
     // Get suggested bill names
-    $suggested_bills = ['Rent', 'Water', 'Electricity', 'Gas', 'Internet', 'Maintenance'];
+    $suggested_bills = ['Rent', 'Water', 'Water Bill', 'Electricity', 'Electricity Bill', 'Gas', 'Internet', 'Maintenance', 'Security', 'Cleaning'];
     
     http_response_code(200);
     echo json_encode([

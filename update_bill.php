@@ -20,10 +20,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
+// Check if JSON decode was successful
+if ($input === null) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Invalid JSON input']);
+    exit;
+}
+
 // Validate required fields
 $required_fields = ['bill_id', 'landlord_id', 'bill_name', 'amount', 'due_date', 'users_id'];
 foreach ($required_fields as $field) {
-    if (!isset($input[$field]) || empty($input[$field])) {
+    if (!isset($input[$field]) || $input[$field] === '') {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => "Missing required field: $field"]);
         exit;
@@ -51,18 +58,20 @@ if ($verify_result->num_rows === 0) {
     exit;
 }
 
-// Update the bill
+// FIXED: Update the bill - now includes users_id
 $update_query = "
     UPDATE bills SET 
         bill_name = ?,
         amount = ?,
         due_date = ?,
+        users_id = ?,
         status = ?
     WHERE id = ? AND landlord_id = ?
 ";
 
+// FIXED: Correct parameter binding - 7 parameters: s,d,s,i,s,i,i
 $stmt = $conn->prepare($update_query);
-$stmt->bind_param("sdsiii", $bill_name, $amount, $due_date, $status, $bill_id, $landlord_id);
+$stmt->bind_param("sdsisii", $bill_name, $amount, $due_date, $users_id, $status, $bill_id, $landlord_id);
 
 if ($stmt->execute()) {
     echo json_encode([
@@ -73,6 +82,7 @@ if ($stmt->execute()) {
             'bill_name' => $bill_name,
             'amount' => $amount,
             'due_date' => $due_date,
+            'users_id' => $users_id,
             'status' => $status
         ]
     ]);
@@ -82,5 +92,6 @@ if ($stmt->execute()) {
 }
 
 $stmt->close();
+$verify_stmt->close();
 $conn->close();
 ?>

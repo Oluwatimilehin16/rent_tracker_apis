@@ -59,7 +59,7 @@ try {
                 WHEN u.id = ? THEN 'landlord'
                 ELSE 'tenant'
             END as sender_role
-        FROM group_messages gm
+        FROM group_chat_messages gm
         JOIN users u ON gm.sender_id = u.id
         WHERE gm.group_id = ?
         ORDER BY gm.timestamp ASC
@@ -86,7 +86,7 @@ try {
     // Get total message count
     $count_stmt = $conn->prepare("
         SELECT COUNT(*) as total 
-        FROM group_messages 
+        FROM group_chat_messages 
         WHERE group_id = ?
     ");
     $count_stmt->bind_param("i", $group_id);

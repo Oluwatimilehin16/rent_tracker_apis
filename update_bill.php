@@ -1,8 +1,4 @@
 <?php
-// Suppress all output before headers
-error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING);
-ini_set('display_errors', 0);
-
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: PUT, OPTIONS');
@@ -62,7 +58,7 @@ if ($verify_result->num_rows === 0) {
     exit;
 }
 
-// FIXED: Update the bill - now includes users_id
+// FIXED: Update the bill with correct parameter binding
 $update_query = "
     UPDATE bills SET 
         bill_name = ?,
@@ -73,26 +69,34 @@ $update_query = "
     WHERE id = ? AND landlord_id = ?
 ";
 
-// FIXED: Correct parameter binding - 7 parameters: s,d,s,i,s,i,i
+// FIXED: Correct parameter binding - s,d,s,i,s,i,i (string, double, string, int, string, int, int)
 $stmt = $conn->prepare($update_query);
 $stmt->bind_param("sdsisii", $bill_name, $amount, $due_date, $users_id, $status, $bill_id, $landlord_id);
 
 if ($stmt->execute()) {
-    echo json_encode([
-        'success' => true, 
-        'message' => 'Bill updated successfully',
-        'data' => [
-            'bill_id' => $bill_id,
-            'bill_name' => $bill_name,
-            'amount' => $amount,
-            'due_date' => $due_date,
-            'users_id' => $users_id,
-            'status' => $status
-        ]
-    ]);
+    // Check if any rows were actually affected
+    if ($stmt->affected_rows > 0) {
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Bill updated successfully',
+            'data' => [
+                'bill_id' => $bill_id,
+                'bill_name' => $bill_name,
+                'amount' => $amount,
+                'due_date' => $due_date,
+                'users_id' => $users_id,
+                'status' => $status
+            ]
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'message' => 'No changes were made to the bill'
+        ]);
+    }
 } else {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Failed to update bill: ' . mysqli_error($conn)]);
+    echo json_encode(['success' => false, 'message' => 'Failed to update bill: ' . $stmt->error]);
 }
 
 $stmt->close();

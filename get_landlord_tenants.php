@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -10,7 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 include 'config.php';
 
-// Only allow GET requests
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
@@ -19,8 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 // Validate required parameter
 if (!isset($_GET['landlord_id'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Missing landlord_id parameter']);
+    echo json_encode(['success' => false, 'message' => 'Missing required parameter: landlord_id']);
     exit;
 }
 
@@ -40,10 +38,10 @@ $tenants_query = "
 $stmt = $conn->prepare($tenants_query);
 $stmt->bind_param("i", $landlord_id);
 $stmt->execute();
-$result = $stmt->get_result();
+$tenants_result = $stmt->get_result();
 
 $tenants = [];
-while ($tenant = $result->fetch_assoc()) {
+while ($tenant = $tenants_result->fetch_assoc()) {
     $tenants[] = $tenant;
 }
 
@@ -52,6 +50,5 @@ echo json_encode([
     'data' => $tenants
 ]);
 
-$stmt->close();
-$conn->close();
+mysqli_close($conn);
 ?>

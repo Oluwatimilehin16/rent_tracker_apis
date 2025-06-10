@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -10,7 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 include 'config.php';
 
-// Only allow GET requests
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
@@ -19,25 +18,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 // Validate required parameters
 if (!isset($_GET['bill_id']) || !isset($_GET['landlord_id'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Missing bill_id or landlord_id parameter']);
+    echo json_encode(['success' => false, 'message' => 'Missing required parameters: bill_id and landlord_id']);
     exit;
 }
 
 $bill_id = (int)$_GET['bill_id'];
 $landlord_id = (int)$_GET['landlord_id'];
 
-// Fetch bill data with tenant information
+// Fetch bill data
 $bill_query = "
-    SELECT 
-        b.id,
-        b.bill_name,
-        b.amount,
-        b.due_date,
-        b.status,
-        b.class_id,
-        u.firstname AS tenant_firstname,
-        u.id AS users_id
+    SELECT b.*, u.firstname AS tenant_firstname, u.id AS users_id
     FROM bills b
     JOIN user_classes uc ON b.class_id = uc.class_id
     JOIN users u ON uc.user_id = u.id
@@ -47,21 +37,18 @@ $bill_query = "
 $stmt = $conn->prepare($bill_query);
 $stmt->bind_param("ii", $bill_id, $landlord_id);
 $stmt->execute();
-$result = $stmt->get_result();
+$bill_result = $stmt->get_result();
+$bill = $bill_result->fetch_assoc();
 
-if ($result->num_rows === 0) {
-    http_response_code(404);
-    echo json_encode(['success' => false, 'message' => 'Bill not found or access denied']);
+if (!$bill) {
+    echo json_encode(['success' => false, 'message' => 'Bill not found']);
     exit;
 }
-
-$bill = $result->fetch_assoc();
 
 echo json_encode([
     'success' => true,
     'data' => $bill
 ]);
 
-$stmt->close();
-$conn->close();
+mysqli_close($conn);
 ?>

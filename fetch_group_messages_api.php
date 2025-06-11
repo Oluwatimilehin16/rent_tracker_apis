@@ -91,7 +91,7 @@ try {
                 WHEN gc.landlord_id = gm.sender_id THEN 'landlord'
                 ELSE 'tenant'
             END as sender_role
-        FROM group_messages gm
+        FROM group_chat_messages gm
         JOIN users u ON gm.sender_id = u.id
         JOIN group_chats gc ON gm.group_id = gc.id
         WHERE gm.group_id = $group_id
@@ -118,7 +118,7 @@ try {
     // Get total message count for pagination
     $count_query = mysqli_query($conn, "
         SELECT COUNT(*) as total 
-        FROM group_messages 
+        FROM group_chat_messages 
         WHERE group_id = $group_id
     ");
     

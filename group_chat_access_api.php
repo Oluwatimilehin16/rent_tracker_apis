@@ -11,6 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 include 'config.php';
 
+// Check database connection
+if (!$conn) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+    exit();
+}
+
 // Only allow GET requests
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
@@ -26,8 +33,15 @@ if (!isset($_GET['group_id']) || !isset($_GET['user_id']) || !isset($_GET['user_
 }
 
 $group_id = intval($_GET['group_id']);
-$user_id = mysqli_real_escape_string($conn, $_GET['user_id']);
+$user_id = intval($_GET['user_id']); // Fixed: make this integer
 $user_role = mysqli_real_escape_string($conn, $_GET['user_role']);
+
+// Validate that IDs are positive integers
+if ($group_id <= 0 || $user_id <= 0) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Invalid ID parameters']);
+    exit();
+}
 
 try {
     // Check access based on user role
@@ -37,13 +51,13 @@ try {
             SELECT gcc.group_id 
             FROM group_chat_classes gcc
             JOIN user_classes uc ON gcc.class_id = uc.class_id
-            WHERE uc.user_id = '$user_id' AND gcc.group_id = '$group_id'
+            WHERE uc.user_id = $user_id AND gcc.group_id = $group_id
         ");
     } elseif ($user_role === 'landlord') {
         // Check if landlord owns the group
         $check_access = mysqli_query($conn, "
             SELECT id FROM group_chats 
-            WHERE id = '$group_id' AND landlord_id = '$user_id'
+            WHERE id = $group_id AND landlord_id = $user_id
         ");
     } else {
         http_response_code(400);
@@ -52,7 +66,7 @@ try {
     }
 
     if (!$check_access) {
-        throw new Exception('Database error occurred');
+        throw new Exception('Database query failed: ' . mysqli_error($conn));
     }
 
     if (mysqli_num_rows($check_access) == 0) {
@@ -62,9 +76,9 @@ try {
     }
 
     // Fetch group chat information
-    $group_query = mysqli_query($conn, "SELECT name FROM group_chats WHERE id = '$group_id'");
+    $group_query = mysqli_query($conn, "SELECT name FROM group_chats WHERE id = $group_id");
     if (!$group_query) {
-        throw new Exception('Database error occurred');
+        throw new Exception('Database query failed: ' . mysqli_error($conn));
     }
     
     $group = mysqli_fetch_assoc($group_query);
@@ -75,9 +89,9 @@ try {
     }
 
     // Fetch user name
-    $name_result = mysqli_query($conn, "SELECT firstname FROM users WHERE id = '$user_id'");
+    $name_result = mysqli_query($conn, "SELECT firstname FROM users WHERE id = $user_id");
     if (!$name_result) {
-        throw new Exception('Database error occurred');
+        throw new Exception('Database query failed: ' . mysqli_error($conn));
     }
     
     $user_data = mysqli_fetch_assoc($name_result);
@@ -89,24 +103,24 @@ try {
         FROM users u 
         JOIN user_classes uc ON u.id = uc.user_id
         JOIN group_chat_classes gcc ON uc.class_id = gcc.class_id
-        WHERE gcc.group_id = '$group_id'
+        WHERE gcc.group_id = $group_id
 
         UNION
 
         SELECT u.id, u.firstname, u.email, 'landlord' as role
         FROM users u
         JOIN group_chats gc ON u.id = gc.landlord_id
-        WHERE gc.id = '$group_id'
+        WHERE gc.id = $group_id
     ");
 
     if (!$members_query) {
-        throw new Exception('Database error occurred');
+        throw new Exception('Database query failed: ' . mysqli_error($conn));
     }
 
     $members = [];
     while ($member = mysqli_fetch_assoc($members_query)) {
         $members[] = [
-            'id' => $member['id'],
+            'id' => intval($member['id']), // Ensure integer
             'firstname' => $member['firstname'],
             'email' => $member['email'],
             'role' => $member['role']
@@ -132,9 +146,14 @@ try {
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Server error occurred']);
+    // For debugging - remove in production:
+    echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+    // For production:
+    // echo json_encode(['success' => false, 'message' => 'Server error occurred']);
 }
 
 // Close connection
-mysqli_close($conn);
+if ($conn) {
+    mysqli_close($conn);
+}
 ?>

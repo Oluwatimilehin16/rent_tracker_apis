@@ -1,7 +1,12 @@
 <?php
-// Set HTTP status to 403 Forbidden
-http_response_code(403);
+// Only respond to UptimeRobot or browser root access
+if ($_SERVER['REQUEST_URI'] === '/' || $_SERVER['REQUEST_URI'] === '') {
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'ok']);
+    exit();
+}
 
-// Optional: send a plain message
-echo "Forbidden: Direct access is not allowed.";
+// Continue with the rest of your app...
+// If you want to forbid other access, you can do that here.
+// But make sure the root `/` works first.
 ?>

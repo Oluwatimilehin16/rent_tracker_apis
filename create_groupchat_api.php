@@ -1,6 +1,4 @@
 <?php
-session_start();
-
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -51,12 +49,25 @@ switch ($method) {
 function handleGetClasses() {
     global $conn;
     
-    // Get landlord_id from session (like your frontend)
-    if (!isset($_SESSION['landlord_id'])) {
-        sendResponse(false, 'Authentication required - please login', null, 401);
+    // Get landlord_id from query parameter or header
+    $landlord_id = null;
+    
+    // Check query parameter first
+    if (isset($_GET['landlord_id'])) {
+        $landlord_id = intval($_GET['landlord_id']);
     }
     
-    $landlord_id = $_SESSION['landlord_id'];
+    // Check Authorization header as alternative
+    if (!$landlord_id && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+        $auth_header = $_SERVER['HTTP_AUTHORIZATION'];
+        if (preg_match('/Bearer\s+(.*)$/i', $auth_header, $matches)) {
+            $landlord_id = intval($matches[1]); // Simple token = landlord_id for now
+        }
+    }
+    
+    if (!$landlord_id) {
+        sendResponse(false, 'Landlord ID is required', null, 400);
+    }
     if (!$landlord_id && isset($_SERVER['HTTP_AUTHORIZATION'])) {
         $auth_header = $_SERVER['HTTP_AUTHORIZATION'];
         if (preg_match('/Bearer\s+(.*)$/i', $auth_header, $matches)) {
@@ -111,13 +122,6 @@ function handleGetClasses() {
 function handleCreateGroupChat() {
     global $conn;
     
-    // Check authentication
-    if (!isset($_SESSION['landlord_id'])) {
-        sendResponse(false, 'Authentication required - please login', null, 401);
-    }
-    
-    $landlord_id = $_SESSION['landlord_id'];
-    
     // Get JSON input
     $input = json_decode(file_get_contents('php://input'), true);
     
@@ -125,18 +129,23 @@ function handleCreateGroupChat() {
         sendResponse(false, 'Invalid JSON input', null, 400);
     }
     
-    // Validate required fields (removed landlord_id since it comes from session)
-    $required_fields = ['group_name', 'class_ids'];
+    // Validate required fields
+    $required_fields = ['landlord_id', 'group_name', 'class_ids'];
     foreach ($required_fields as $field) {
         if (!isset($input[$field]) || empty($input[$field])) {
             sendResponse(false, "Field '$field' is required", null, 400);
         }
     }
     
+    $landlord_id = intval($input['landlord_id']);
     $group_name = trim($input['group_name']);
     $class_ids = $input['class_ids'];
     
-    // Validate inputs (removed landlord_id validation since it comes from session)
+    // Validate inputs
+    if (!is_numeric($landlord_id) || $landlord_id <= 0) {
+        sendResponse(false, 'Invalid landlord ID', null, 400);
+    }
+    
     if (strlen($group_name) < 2 || strlen($group_name) > 100) {
         sendResponse(false, 'Group name must be between 2 and 100 characters', null, 400);
     }

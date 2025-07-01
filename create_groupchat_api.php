@@ -68,16 +68,6 @@ function handleGetClasses() {
     if (!$landlord_id) {
         sendResponse(false, 'Landlord ID is required', null, 400);
     }
-    if (!$landlord_id && isset($_SERVER['HTTP_AUTHORIZATION'])) {
-        $auth_header = $_SERVER['HTTP_AUTHORIZATION'];
-        if (preg_match('/Bearer\s+(.*)$/i', $auth_header, $matches)) {
-            $landlord_id = intval($matches[1]); // Simple token = landlord_id for now
-        }
-    }
-    
-    if (!$landlord_id) {
-        sendResponse(false, 'Landlord ID is required', null, 400);
-    }
     
     // Validate landlord_id is numeric and positive
     if (!is_numeric($landlord_id) || $landlord_id <= 0) {
@@ -86,7 +76,7 @@ function handleGetClasses() {
     
     try {
         // Use prepared statement to prevent SQL injection
-        $stmt = mysqli_prepare($conn, "SELECT id, class_name FROM classes WHERE landlord_id = ? ORDER BY class_name ASC");
+        $stmt = mysqli_prepare($conn, "SELECT id, class_name, created_at FROM classes WHERE landlord_id = ? ORDER BY class_name ASC");
         
         if (!$stmt) {
             sendResponse(false, 'Database query preparation failed', null, 500);
@@ -100,7 +90,8 @@ function handleGetClasses() {
         while ($row = mysqli_fetch_assoc($result)) {
             $classes[] = [
                 'id' => intval($row['id']),
-                'class_name' => $row['class_name']
+                'class_name' => $row['class_name'],
+                'created_at' => $row['created_at']
             ];
         }
         
@@ -204,9 +195,9 @@ function handleCreateGroupChat() {
             throw new Exception('A group chat with this name already exists');
         }
         
-        // Insert into group_chats table (removed created_at)
+        // Insert into group_chats table
         $group_stmt = mysqli_prepare($conn, 
-            "INSERT INTO group_chats (landlord_id, name) VALUES (?, ?)"
+            "INSERT INTO group_chats (landlord_id, name, created_at) VALUES (?, ?, NOW())"
         );
         
         if (!$group_stmt) {
@@ -222,9 +213,9 @@ function handleCreateGroupChat() {
         $group_id = mysqli_insert_id($conn);
         mysqli_stmt_close($group_stmt);
         
-        // Insert selected classes into group_chat_classes (removed created_at)
+        // Insert selected classes into group_chat_classes
         $class_stmt = mysqli_prepare($conn, 
-            "INSERT INTO group_chat_classes (group_id, class_id) VALUES (?, ?)"
+            "INSERT INTO group_chat_classes (group_id, class_id, created_at) VALUES (?, ?, NOW())"
         );
         
         if (!$class_stmt) {
@@ -249,13 +240,14 @@ function handleCreateGroupChat() {
         mysqli_commit($conn);
         mysqli_autocommit($conn, true);
         
-        // Return success response with created group details (removed created_at)
+        // Return success response with created group details
         sendResponse(true, 'Group chat created successfully', [
             'group_id' => intval($group_id),
             'group_name' => $group_name,
             'landlord_id' => $landlord_id,
             'associated_classes' => $inserted_classes,
-            'total_classes' => count($inserted_classes)
+            'total_classes' => count($inserted_classes),
+            'created_at' => date('Y-m-d H:i:s')
         ], 201);
         
     } catch (Exception $e) {

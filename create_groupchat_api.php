@@ -90,8 +90,7 @@ function handleGetClasses() {
         while ($row = mysqli_fetch_assoc($result)) {
             $classes[] = [
                 'id' => intval($row['id']),
-                'class_name' => $row['class_name'],
-
+                'class_name' => $row['class_name']
             ];
         }
         
@@ -195,9 +194,9 @@ function handleCreateGroupChat() {
             throw new Exception('A group chat with this name already exists');
         }
         
-        // Insert into group_chats table
+        // Insert into group_chats table (removed created_at)
         $group_stmt = mysqli_prepare($conn, 
-            "INSERT INTO group_chats (landlord_id, name) VALUES (?, ?, NOW())"
+            "INSERT INTO group_chats (landlord_id, name) VALUES (?, ?)"
         );
         
         if (!$group_stmt) {
@@ -213,9 +212,9 @@ function handleCreateGroupChat() {
         $group_id = mysqli_insert_id($conn);
         mysqli_stmt_close($group_stmt);
         
-        // Insert selected classes into group_chat_classes
+        // Insert selected classes into group_chat_classes (removed created_at)
         $class_stmt = mysqli_prepare($conn, 
-            "INSERT INTO group_chat_classes (group_id, class_id) VALUES (?, ?, NOW())"
+            "INSERT INTO group_chat_classes (group_id, class_id) VALUES (?, ?)"
         );
         
         if (!$class_stmt) {
@@ -240,13 +239,13 @@ function handleCreateGroupChat() {
         mysqli_commit($conn);
         mysqli_autocommit($conn, true);
         
-        // Return success response with created group details
+        // Return success response with created group details (removed created_at)
         sendResponse(true, 'Group chat created successfully', [
             'group_id' => intval($group_id),
             'group_name' => $group_name,
             'landlord_id' => $landlord_id,
             'associated_classes' => $inserted_classes,
-            'total_classes' => count($inserted_classes),
+            'total_classes' => count($inserted_classes)
         ], 201);
         
     } catch (Exception $e) {

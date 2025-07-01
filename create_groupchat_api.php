@@ -76,7 +76,7 @@ function handleGetClasses() {
     
     try {
         // Use prepared statement to prevent SQL injection
-        $stmt = mysqli_prepare($conn, "SELECT id, class_name, created_at FROM classes WHERE landlord_id = ? ORDER BY class_name ASC");
+        $stmt = mysqli_prepare($conn, "SELECT id, class_name FROM classes WHERE landlord_id = ? ORDER BY class_name ASC");
         
         if (!$stmt) {
             sendResponse(false, 'Database query preparation failed', null, 500);
@@ -91,7 +91,7 @@ function handleGetClasses() {
             $classes[] = [
                 'id' => intval($row['id']),
                 'class_name' => $row['class_name'],
-                'created_at' => $row['created_at']
+
             ];
         }
         
@@ -197,7 +197,7 @@ function handleCreateGroupChat() {
         
         // Insert into group_chats table
         $group_stmt = mysqli_prepare($conn, 
-            "INSERT INTO group_chats (landlord_id, name, created_at) VALUES (?, ?, NOW())"
+            "INSERT INTO group_chats (landlord_id, name) VALUES (?, ?, NOW())"
         );
         
         if (!$group_stmt) {
@@ -215,7 +215,7 @@ function handleCreateGroupChat() {
         
         // Insert selected classes into group_chat_classes
         $class_stmt = mysqli_prepare($conn, 
-            "INSERT INTO group_chat_classes (group_id, class_id, created_at) VALUES (?, ?, NOW())"
+            "INSERT INTO group_chat_classes (group_id, class_id) VALUES (?, ?, NOW())"
         );
         
         if (!$class_stmt) {
@@ -247,7 +247,6 @@ function handleCreateGroupChat() {
             'landlord_id' => $landlord_id,
             'associated_classes' => $inserted_classes,
             'total_classes' => count($inserted_classes),
-            'created_at' => date('Y-m-d H:i:s')
         ], 201);
         
     } catch (Exception $e) {
